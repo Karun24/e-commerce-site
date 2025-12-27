@@ -1,33 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../utils/supabase';
-import { Order } from '../types';
 import { Package } from 'lucide-react';
+import { Order } from '../types';
+
+const API_BASE = 'http://localhost:8080/api';
 
 export const OrdersPage: React.FC = () => {
-  const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchOrders();
-    }
-  }, [user]);
+    fetchOrders();
+  }, []);
 
   const fetchOrders = async () => {
-    if (!user) return;
+    try {
+      const res = await fetch(`${API_BASE}/orders/my`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      if (!res.ok) throw new Error('Failed to fetch orders');
 
-    if (!error && data) {
-      setOrders(data as Order[]);
+      const data = await res.json();
+      setOrders(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -51,7 +52,7 @@ export const OrdersPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-white mb-8">My Orders</h1>
 
         {loading ? (
@@ -64,25 +65,23 @@ export const OrdersPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.map((order) => (
+            {orders.map(order => (
               <div
                 key={order.id}
                 className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-blue-500 transition"
               >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-white mb-2">{order.order_number}</h3>
-                    <p className="text-slate-400 text-sm mb-2">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-semibold text-white">{order.order_number}</h3>
+                    <p className="text-slate-400 text-sm">
                       {new Date(order.created_at).toLocaleDateString()}
                     </p>
-                    <p className="text-slate-400 text-sm">{order.shipping_address}</p>
                   </div>
-
-                  <div className="flex flex-col items-end gap-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(order.status)}`}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                  <div className="text-right">
+                    <span className={`px-3 py-1 rounded-full border text-sm ${getStatusColor(order.status)}`}>
+                      {order.status}
                     </span>
-                    <p className="text-2xl font-bold text-white">
+                    <p className="text-xl font-bold text-white mt-2">
                       ${order.total_amount.toFixed(2)}
                     </p>
                   </div>
